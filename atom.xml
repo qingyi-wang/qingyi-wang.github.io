@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2017-02-02T15:38:23.733Z</updated>
+  <updated>2017-04-08T04:28:04.561Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -14,6 +14,41 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title></title>
+    <link href="http://yoursite.com/2017/04/08/FPGA_HDMI%20demo%20%E6%80%BB%E7%BB%93/"/>
+    <id>http://yoursite.com/2017/04/08/FPGA_HDMI demo 总结/</id>
+    <published>2017-04-08T04:30:38.836Z</published>
+    <updated>2017-04-08T04:28:04.561Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="FPGA-HDMI-demo-总结（2017年4月8日10：41：35）"><a href="#FPGA-HDMI-demo-总结（2017年4月8日10：41：35）" class="headerlink" title="FPGA_HDMI demo 总结（2017年4月8日10：41：35）"></a>FPGA_HDMI demo 总结（2017年4月8日10：41：35）</h1><hr>
+<p>　　写在前面：耗时两周，终于算是搞定了第一个自己做的关于 HDMI 显示 rom 图片的小项目，过程艰辛（周围没有做这方面的同学），有好几次都想放弃，但最终还是坚持下来啦。啊哈哈，为自己点个赞。下面把我的经历写下来，希望对以后学习的同学有一些帮助。</p>
+<h2 id="一-做这个的原因"><a href="#一-做这个的原因" class="headerlink" title="一.做这个的原因"></a>一.做这个的原因</h2><p>　　开始写了哈。这也算是我的第一个 MD demo，可谓是有些小兴奋。<br>　　最近在找实习，找到了一家实习公司，还愿意来培养我，给我安排一些任务来做，感觉还是蛮刺激的。现在主要做的是特征 Fast 点算法的移植。然后最开始肯定是平台的搭建呀，所以就有了想做一个 HDMI 显示 rom 图片这样小项目的目标。目的也比较单纯，对于我这样一个纯小白来说还是有很大的锻炼机会，权当学习了。不过到目前为止，我也不敢说我对与显示方面有比较深的理解，只是算是入门吧。</p>
+<h2 id="二-开始的理解及解决方法"><a href="#二-开始的理解及解决方法" class="headerlink" title="二.开始的理解及解决方法"></a>二.开始的理解及解决方法</h2><p>###1. <strong>对方案毫无头绪</strong><br>　　最开始的思路是想从 zynq ip 核层次做这个东西，后在参考了米联客他们写的 demo 后发现结合 sdk 做需要一的基础。为使自己更加稳步地提高，我决定从最底层地 Verilog HDL 语言设计开始。最后定下的方案便是设计驱动电路驱动 HDMI，然后基于这个基础上加上 rom 储存的二进制图片文件进行显示。大概的设计流程是这样，但过程还是比较艰辛的。</p>
+<p>###2. <strong>HDMI 驱动电路的实现</strong><br>　　在写驱动电路之前，我其实也是最开始比较焦躁的，希望一下子可以把这件事情做完。所以我最开始的想法是想把别人的 demo 拿来直接用，但是网上没有关于 zynq 这块板子上用 rom ip 来实现各种功能的例子，没办法了，所以得自己重新思考对策。在看了好多基于 VGA 上用 rom ip 来实现的例子之后，我发现其实 HDMI 与 VGA 显示实际驱动电路都是一样的，因此就借鉴的一下米联客 demo 上的 HDMI 驱动电路的例子。<br>　　以下是关键的驱动行场同步的代码：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">reg[11:0]	x_cnt;</div><div class="line">always @(posedge pix_clk)		//水平计数</div><div class="line">begin</div><div class="line">	if(1&apos;b0)				x_cnt &lt;= 1;</div><div class="line">	else if(x_cnt==H_Total) x_cnt &lt;= 1;</div><div class="line">	else					x_cnt &lt;= x_cnt + 1;</div><div class="line">end</div></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">// 行有效区使能</div><div class="line">reg	hsync_r;</div><div class="line">reg	hs_de;</div><div class="line">always @(posedge pix_clk)</div><div class="line">begin</div><div class="line">	if(1&apos;b0) 			   hsync_r &lt;= 1&apos;b1;</div><div class="line">	else if(x_cnt==1) 	   hsync_r &lt;= 1&apos;b0;</div><div class="line">	else if(x_cnt==H_Sync) hsync_r &lt;= 1&apos;b1;</div><div class="line">	else ; </div><div class="line">	</div><div class="line">	if(1&apos;b0)                hs_de &lt;= 1&apos;b0;</div><div class="line">	else if(x_cnt==H_Start) hs_de &lt;= 1&apos;b1;</div><div class="line">	else if(x_cnt==H_End)   hs_de &lt;= 1&apos;b0;</div><div class="line">	else ;</div><div class="line">end</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">reg[11:0]	y_cnt;</div><div class="line">always @(posedge pix_clk)</div><div class="line">begin</div><div class="line"> // 垂直计数，有两个条件判断，先判断 y 是否计数计满，再判断 x 计数满的情况下增加 y_cnt 的垂直计数</div><div class="line">	if(1&apos;b0) 				y_cnt &lt;= 1; </div><div class="line">	else if(y_cnt==V_Total) y_cnt &lt;= 1;</div><div class="line">	else if(x_cnt==H_Total) y_cnt &lt;= y_cnt + 1;</div><div class="line">	else ;</div><div class="line">end</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line">// 帧有效区使能</div><div class="line">reg	vsync_r;</div><div class="line">reg	vs_de;</div><div class="line">always @(posedge pix_clk)</div><div class="line">begin</div><div class="line">	if(1&apos;b0) 				vsync_r &lt;= 1&apos;b1;</div><div class="line">	else if(y_cnt==1)       vsync_r &lt;= 1&apos;b0;</div><div class="line">	else if(y_cnt==V_Sync)  vsync_r &lt;= 1&apos;b1;</div><div class="line">	else ;</div><div class="line">	</div><div class="line">	if(1&apos;b0)   				vs_de &lt;= 1&apos;b0;</div><div class="line">	else if(y_cnt==V_Start) vs_de &lt;= 1&apos;b1;</div><div class="line">	else if(y_cnt==V_End)   vs_de &lt;= 1&apos;b0;</div><div class="line">	else ;</div><div class="line">end</div><div class="line">```  </div><div class="line">###3. **rom 储存二进制文件显示**  　</div><div class="line">　　这是困扰我的最大的难题，在做这个图像显示的过程中，其实最难的就是这一部分。我将分两个方面说一下这个问题。</div><div class="line">#### 软件平台的搭建</div><div class="line">　　一开始我以为很简单来着，但花了差不多两三天的时间才理解了怎么构建 rom ip 这个问题。首先，这个 ip 是软件自带有的，不需要自己去写，这对于初学者来说，就省了很大的时间来学习这些东西，只要会用就好了，搭建好 ip 之后，再把它连进去就好。</div><div class="line">#### 图像转码为 rom ip 可用的格式</div><div class="line">　　这个的的话有相关的软件和教程，如果想学的话自己去百度一下应该是可以搜到的。</div><div class="line"></div><div class="line">　　回到最开始的问题，接下来是让图片通过 HDMI 显示出来。最开始图像显示是乱码，我以为是自己处理的图片有问题，再换了很多图片之后发现不是图片的问题，将答案锁定在行场行信号的同步问题上面，最后也如愿显示出来了！这个是最后显示的效果图：</div><div class="line"></div><div class="line">![](http://i.imgur.com/YuGhMHC.jpg)</div><div class="line"></div><div class="line">　　最后我贴下最后使图片完全显示的关键代码：</div></pre></td></tr></table></figure>
+<p>// 有效显示区坐标<br>wire[11:0] vga_xpos = x_cnt - H_Start;<br>wire[11:0] vga_ypos = y_cnt - V_Start;</p>
+<p>//———————————————————————————————–<br>// 显示图像<br>reg [16:0]addr;<br>always @(posedge pix_clk)<br>begin<br>    if((vga_ypos&gt;=11’d120) &amp;&amp; (vga_ypos&lt;=11’d359) &amp;&amp; (vga_xpos&gt;=11’d240) &amp;&amp; (vga_xpos&lt;=11’d559)) // 320<em>240<br>        addr &lt;= (vga_ypos - 120)</em>320 + (vga_xpos - 240);<br>    else<br>        addr &lt;= 0;<br>end<br>```<br>　　完整的工程我已经放到我的 git(<a href="https://github.com/qingyi-wang/HDMI_DEMO_2017_03_28_01" target="_blank" rel="external">https://github.com/qingyi-wang/HDMI_DEMO_2017_03_28_01</a>) 上面，希望能对初学这个的同学有帮助。</p>
+<h2 id="三-提高与改进"><a href="#三-提高与改进" class="headerlink" title="三.提高与改进"></a>三.提高与改进</h2><p>　　上面的图片有一些显示问题，经过仔细思考之后问题已经解决。</p>
+<p>#####　1. 图片输出的粉红底问题已经解决，在像素赋值的时候加上条件判断即可。</p>
+<p>#####　2. Display 驱动这部分单独写一个 ip 进行。</p>
+<h2 id="四-总结及思考"><a href="#四-总结及思考" class="headerlink" title="四.总结及思考"></a>四.总结及思考</h2><p>　　以下几个方面是自己认为做的不好的方面，希望后续能够补充并进步。</p>
+<p>#####　1. 程序写得太混乱，没有自己的条理和思路，对于整体的把握还有些欠缺。</p>
+<p>#####　2. 没有遵循 DUT 的标准，导致在后面写 BINGO 大哥的 VGA 输出 demo 出现了显示问题，这个在有时间之后一定要把它给解决了。</p>
+<p>#####　3. 心态不是很好，自己一定要注意不要想着事情一下子就能做好，而是要慢慢来的。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;FPGA-HDMI-demo-总结（2017年4月8日10：41：35）&quot;&gt;&lt;a href=&quot;#FPGA-HDMI-demo-总结（2017年4月8日10：41：35）&quot; class=&quot;headerlink&quot; title=&quot;FPGA_HDMI demo 总结（20
+    
+    </summary>
+    
+    
+  </entry>
   
   <entry>
     <title>Hello World</title>
